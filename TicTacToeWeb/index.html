@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <title>TicTacToe (Web)</title>
+    <link rel="icon" href="/TicTacToe/icon.ico">
+    <style>
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  font-family: Arial, sans-serif;
+  text-align: center;
+  background: linear-gradient(lightblue, lightgreen);
+  background-attachment: fixed; /* makes it cover the full window */
+}
+    h1 { margin-top: 20px; }
+    .controls {
+      margin: 18px auto;
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+    }
+    button {
+      padding: 10px 14px;
+      font-size: 16px;
+      cursor: pointer;
+      border: 2px solid #000;
+      border-radius: 8px;
+      background-color: #f0f0f0;
+      transition: background 0.3s;
+    }
+    button:hover {
+      background-color: #ddd;
+    }
+    .board {
+      display: grid;
+      grid-template-columns: repeat(3, 90px);
+      gap: 6px;
+      justify-content: center;
+      margin: 20px auto;
+    }
+    .cell {
+      width: 90px;
+      height: 90px;
+      font-size: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 8px;
+      background: #e0f7fa;
+      border: 2px solid #000;
+      cursor: pointer;
+    }
+    .status {
+      margin-top: 10px;
+      font-weight: bold;
+      color: #800;
+    }
+
+    </style>
+</head>
+<body>
+<h1>TicTacToe (Web)</h1>
+
+<div class="controls">
+    <button id="offline">🎮 Play (offline)</button>
+    <button id="online">🌐 Play (online)</button>
+    <button id="leader">🏆 Leaderboard</button>
+</div>
+
+<div id="board" class="board" aria-label="tic-tac-toe board"></div>
+<div id="status" class="status">Loading...</div>
+
+<script>
+  const boardEl = document.getElementById('board');
+  const statusEl = document.getElementById('status');
+  const offlineBtn = document.getElementById('offline');
+  const onlineBtn = document.getElementById('online');
+  const leaderBtn = document.getElementById('leader');
+
+  // track whether we are in online mode
+  let isOnlineMode = false;
+
+  // Start new game (offline)
+  offlineBtn.onclick = async () => {
+    isOnlineMode = false;
+    await fetch('TicTacToe/newgame?mode=offline');
+    await renderBoard();
+  };
+
+  // Start new game (online)
+  onlineBtn.onclick = async () => {
+    isOnlineMode = true;
+    await fetch('TicTacToe/newgame?mode=online');
+    await renderBoard();
+  };
+
+  // Show leaderboard
+  leaderBtn.onclick = async () => {
+    let res = await fetch('TicTacToe/leaderboard');
+    let txt = await res.text();
+    alert('🏆 Leaderboard:\n' + txt);
+  };
+
+  // Render the board from backend JSON
+  async function renderBoard() {
+    let res = await fetch('TicTacToe/board');
+    if (!res.ok) {
+      statusEl.textContent = 'Server error';
+      return;
+    }
+
+    let js = await res.json();
+    boardEl.innerHTML = '';
+
+    // Create 9 clickable cells
+    js.board.forEach((v, i) => {
+      const d = document.createElement('div');
+      d.className = 'cell';
+      d.textContent = v === '-' ? '' : v;
+      d.onclick = async () => {
+        await fetch('TicTacToe/move?pos=' + i);
+        await renderBoard();
+      };
+      boardEl.appendChild(d);
+    });
+
+    // Update status text
+    if (js.winner === ' ' || js.winner === '') {
+      statusEl.textContent = 'Your turn (X)';
+    } else if (js.winner === 'D') {
+      statusEl.textContent = 'Draw!';
+    } else {
+      statusEl.textContent = 'Winner: ' + js.winner;
+
+      // ✅ Only save result if online mode is active
+      if (isOnlineMode && js.winner === 'X') {
+        const name = prompt("🎉 You won! Enter your name to save your score:", "player");
+        if (name) {
+          await fetch('TicTacToe/saveWin?name=' + encodeURIComponent(name));
+          alert("✅ Score saved for " + name);
+        }
+      }
+    }
+  }
+
+  // Load initial board on page open
+  renderBoard();
+
+</script>
+</body>
+</html>
+
+
